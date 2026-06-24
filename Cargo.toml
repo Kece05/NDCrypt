@@ -1,0 +1,12 @@
+[package]
+name = "NDCrypt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rand     = "0.8"
+sha3     = "0.10"
+concrete-ntt = "0.2"
+zeroize = { version = "1.8", features = ["derive"] }
+once_cell = { version = "1.20", features = ["std"] }
+subtle = "2.6"
