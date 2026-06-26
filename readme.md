@@ -194,12 +194,13 @@ After the handshake, both parties verify the exchange was not intercepted.
 CONFIRM_TAG         = fixed byte sequence known to both clients
 NONCE_CONFIRM_BOB   = 0x80000000  (bit 31 set — reserved nonce space)
 NONCE_CONFIRM_ALICE = 0x80000001
-```
 
 Bob encrypts CONFIRM_TAG with NONCE_CONFIRM_BOB and sends it alongside his ciphertext.
 
 Alice decapsulates, derives the same seed, decrypts the confirmation — if it matches CONFIRM_TAG, Bob provably encapsulated against her real public key. A MITM who swapped the public key produces a different seed and cannot produce a matching confirmation. Alice then sends her own confirmation back. Only after both confirmations pass does either side mark the channel secure.
+```
 =======
+
 ## Key Confirmation
 
 After encapsulation, both peers perform a key-confirmation exchange using the
@@ -450,4 +451,3 @@ Layer 3 — Key confirmation
 - **Two-party sessions.** The protocol currently supports a single sender and receiver. Multi-party communication would require an additional group key agreement protocol.
 
 - **Metadata visibility.** Although message contents remain encrypted, the relay observes packet timing, message frequency, chunk counts, transfer sizes, and connection patterns.
->>>>>>> Stashed changes
