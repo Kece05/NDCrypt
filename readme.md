@@ -73,13 +73,19 @@ The a · s · s' terms cancel exactly. The residual noise is small so it never p
 
 ### Polynomial Multiplication (gka.rs)
 
-Ring multiplication uses schoolbook convolution mod (x^N + 1).
+Ring multiplication uses a pure Rust negacyclic Number Theoretic Transform (NTT) over
 
-For coefficient pair (i, j):
-- If i + j < N: accumulate product at index i + j
-- If i + j >= N: subtract product at index i + j - N (because x^N ≡ -1)
+    Rq = Zq[X]/(X^1024 + 1)
 
-This is O(N^2) with no external dependencies, making it fully WASM-compatible. For N=1024 this is approximately 1M operations per multiply. The concrete_ntt dependency was removed to achieve WASM compatibility — all arithmetic is pure Rust.
+Each multiplication performs:
+
+1. Multiply coefficients by precomputed powers of ψ (pre-twist)
+2. Forward radix-2 Cooley-Tukey NTT
+3. Pointwise multiplication in the transform domain
+4. Inverse NTT
+5. Multiply by N⁻¹ and ψ⁻ⁱ (post-twist)
+
+The implementation uses precomputed twiddle factors and roots of unity for q = 12289 and performs polynomial multiplication in O(N log N) time while remaining entirely pure Rust and fully WebAssembly compatible.
 
 ---
 
@@ -300,7 +306,7 @@ ndcrypt/
 └── src/
     ├── lib.rs        — WASM entry point, NDCryptWasm class
     ├── params.rs     — N, Q, SIGNAL_COUNT constants
-    ├── gka.rs        — Ring arithmetic, schoolbook multiply, S derivation
+    ├── gka.rs        — Ring arithmetic, pure Rust negacyclic NTT, S derivation 
     ├── keygen.rs     — Ring-LWE keypair generation
     ├── encrypt.rs    — Seed encapsulation (Bob)
     ├── decrypt.rs    — Seed decapsulation (Alice)
@@ -377,8 +383,9 @@ The server learns nothing about message content, sender names, or file contents.
 
 ```
 Layer 1 — Ring-LWE hardness
-  Breaking the handshake requires solving Ring-LWE in Z_12289[x]/(x^1024+1)
-  No known classical or quantum algorithm does this at these parameters
+Breaking the handshake requires solving Ring-LWE in Z12289[x]/(x^1024+1).
+Polynomial arithmetic is accelerated using an NTT implementation, but the
+underlying Ring-LWE problem and security assumptions are unchanged.
 
 Layer 2 — Coordinate hiding
   Finding S requires searching C(1024,32) ≈ 2^210 subsets
@@ -395,8 +402,6 @@ Layer 3 — Key confirmation
 **IND-CPA only.** The Ring-LWE KEM does not include the Fujisaki-Okamoto transform. It provides IND-CPA security — adequate for ephemeral key exchange with forward secrecy, not IND-CCA2. Private keys must not be reused across sessions.
 
 **StdRng.** gka.rs uses Rust's StdRng (ChaCha12) for the Fisher-Yates shuffle. Pinning to ChaCha20Rng via rand_chacha would make the algorithm explicit for production.
-
-**Schoolbook multiplication.** ring_multiply is O(N^2) for WASM compatibility. This is 10-50ms per multiply in a browser — acceptable for a one-time handshake. A pure-Rust negacyclic NTT with precomputed roots of unity would reduce this to O(N log N).
 
 **Expansion ratio.** NDCrypt produces 2048 bytes of ciphertext per 31 bytes of plaintext (~66× expansion). For large file transfers this is significant. The protocol is designed for secure messaging.
 
