@@ -318,7 +318,7 @@ async def ws_handler(ws: ServerConnection) -> None:
                 if not isinstance(session_id, str) or len(session_id) != 32:
                     await ws.close(1008, "Bad session_id")
                     return
-                if not isinstance(confirm, list) or len(confirm) != 1024:
+                if not isinstance(confirm, list) or len(confirm) != 1040:
                     await ws.close(1008, "Bad confirm")
                     return
 
@@ -355,7 +355,7 @@ async def ws_handler(ws: ServerConnection) -> None:
             elif msg_type == "confirm_ack":
                 array      = data.get("array")
                 session_id = data.get("session_id", "")
-                if not isinstance(array, list) or len(array) != 1024:
+                if not isinstance(array, list) or len(array) != 1040:
                     await ws.close(1008, "Bad confirm_ack")
                     return
                 if not isinstance(session_id, str) or len(session_id) != 32:
@@ -385,7 +385,7 @@ async def ws_handler(ws: ServerConnection) -> None:
 
                 if not isinstance(nonce, int) or not isinstance(array, list):
                     continue
-                if len(array) != 1024:
+                if len(array) != 1040:
                     continue
                 if kind not in ("meta", "data"):
                     continue

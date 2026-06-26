@@ -187,6 +187,7 @@ const text  = engine.decrypt_msg(point, nonce);
 
 ## Key Confirmation (MITM Prevention)
 
+<<<<<<< Updated upstream
 After the handshake, both parties verify the exchange was not intercepted.
 
 ```
@@ -198,6 +199,25 @@ NONCE_CONFIRM_ALICE = 0x80000001
 Bob encrypts CONFIRM_TAG with NONCE_CONFIRM_BOB and sends it alongside his ciphertext.
 
 Alice decapsulates, derives the same seed, decrypts the confirmation — if it matches CONFIRM_TAG, Bob provably encapsulated against her real public key. A MITM who swapped the public key produces a different seed and cannot produce a matching confirmation. Alice then sends her own confirmation back. Only after both confirmations pass does either side mark the channel secure.
+=======
+## Key Confirmation
+
+After encapsulation, both peers perform a key-confirmation exchange using the
+newly established shared seed.
+
+Bob encrypts a fixed confirmation tag under the shared seed and sends it with
+his encapsulation ciphertext. Alice decrypts and verifies the tag after
+decapsulation, then returns her own confirmation.
+
+This proves both peers derived the same session key before encrypted messaging
+begins.
+
+**Important:** this confirms possession of the shared key, but does **not**
+authenticate the remote user's identity. Without long-term identity keys,
+certificates, or a trust-on-first-use (TOFU) mechanism, an active relay can
+still impersonate another participant by initiating its own independent
+handshake.
+>>>>>>> Stashed changes
 
 ---
 
@@ -251,7 +271,18 @@ The expansion ratio (~66×) is the known cost of using NDCrypt directly for bulk
 
 ## Relay Server (server.py)
 
+<<<<<<< Updated upstream
 The Python WebSocket relay routes encrypted frames between peers. It enforces protocol structure but never inspects content.
+=======
+| Tag | Feature | Description |
+|------|---------|-------------|
+| S1 | Session pairing | Random 128-bit routing identifier used only to associate Bob's response with the correct Alice. It has no cryptographic meaning. |
+| S3 | Origin allowlist | Rejects browser WebSocket connections whose Origin does not match the configured server host. |
+| S4 | Rate limiting | Per-IP token bucket (200 message burst, 100 messages/sec sustained) sized for chunked file transfers while limiting abusive traffic. |
+| S5 | Path traversal protection | Static files are constrained to the pkg/ directory using absolute-path validation. |
+| S6 | Typed exception handling | Explicit exception types replace bare exception handlers. |
+| S7 | Handshake state machine | Connections progress through IDLE → PUBKEY_SENT → COMPLETE. Invalid transitions terminate the connection. |
+>>>>>>> Stashed changes
 
 ### Security Features
 
@@ -399,6 +430,7 @@ Layer 3 — Key confirmation
 
 ### Known Limitations
 
+<<<<<<< Updated upstream
 **IND-CPA only.** The Ring-LWE KEM does not include the Fujisaki-Okamoto transform. It provides IND-CPA security — adequate for ephemeral key exchange with forward secrecy, not IND-CCA2. Private keys must not be reused across sessions.
 
 **StdRng.** gka.rs uses Rust's StdRng (ChaCha12) for the Fisher-Yates shuffle. Pinning to ChaCha20Rng via rand_chacha would make the algorithm explicit for production.
@@ -406,3 +438,16 @@ Layer 3 — Key confirmation
 **Expansion ratio.** NDCrypt produces 2048 bytes of ciphertext per 31 bytes of plaintext (~66× expansion). For large file transfers this is significant. The protocol is designed for secure messaging.
 
 **Two-party only.** One Alice and one Bob per session. Group chat requires a separate key agreement protocol.
+=======
+- **Anonymous key exchange.** The current protocol confirms that both peers derived the same shared session key, but it does not authenticate peer identities. Adding long-term signing keys, certificates, or TOFU fingerprints would provide authenticated key exchange.
+
+- **Replay protection.** Application messages currently rely on nonce uniqueness but do not maintain a replay window. Future versions should reject duplicate nonces.
+
+- **IND-CPA KEM.** The Ring-LWE encapsulation does not currently implement the Fujisaki–Okamoto transform, so it provides IND-CPA rather than IND-CCA2 security.
+
+- **Ciphertext expansion.** Each encrypted point carries at most 31 plaintext bytes, resulting in approximately 66× expansion for bulk data. The protocol is intended primarily for secure messaging rather than high-throughput file transport.
+
+- **Two-party sessions.** The protocol currently supports a single sender and receiver. Multi-party communication would require an additional group key agreement protocol.
+
+- **Metadata visibility.** Although message contents remain encrypted, the relay observes packet timing, message frequency, chunk counts, transfer sizes, and connection patterns.
+>>>>>>> Stashed changes

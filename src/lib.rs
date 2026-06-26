@@ -81,7 +81,7 @@ impl NDCryptWasm {
             return false;
         }
  
-        if let Some(sk) = &self.sk {
+        if let (Some(sk), Some(pk)) = (&self.sk, &self.pk) {
             let mut c1_coeffs = [0u16; 1024];
             let mut c2_coeffs = [0u16; 1024];
             c1_coeffs.copy_from_slice(&cipher_flat[0..1024]);
@@ -92,9 +92,18 @@ impl NDCryptWasm {
                 c2: gka::RingElement { coeffs: c2_coeffs },
             };
  
-            let dec_result = decrypt::decapsulate_payload(&ciphertext, sk);
-            self.shared_seed = Some(Zeroizing::new(*dec_result.shared_seed));
-            return true;
+            // FO re-encryption check happens inside decapsulate_payload. A forged
+            // or corrupted ciphertext returns Err here — we must not set
+            // shared_seed or report success in that case (Bug #1 regression guard).
+            match decrypt::decapsulate_payload(&ciphertext, sk, pk) {
+                Ok(dec_result) => {
+                    self.shared_seed = Some(Zeroizing::new(*dec_result.shared_seed));
+                    return true;
+                }
+                Err(_) => {
+                    return false;
+                }
+            }
         }
         return false;
     }
@@ -114,26 +123,25 @@ impl NDCryptWasm {
             return 0;
         }
     }
-    // Encrypt raw bytes. Caller builds the full framed payload before passing it in
+    // Encrypt raw bytes. Caller builds the full framed payload before passing it in.
+    // Returns 1040 u16s: 1024 ciphertext coefficients + 16 MAC tag words.
     pub fn encrypt_bytes(&self, payload: &[u8], nonce: u32) -> Vec<u16> {
         if let Some(seed) = &self.shared_seed {
-            if let Ok(point) = ndcrypt::encrypt(payload, &**seed, nonce as u64) {
-                return point.coeffs.to_vec();
+            if let Ok(out) = ndcrypt::encrypt_authenticated(payload, &**seed, nonce as u64) {
+                return out;
             }
         }
-        return vec![];
+        vec![]
     }
  
-    // Decrypt a 1024-u16 ciphertext back to raw bytes
+    // Decrypt a 1040-u16 authenticated ciphertext (1024 coefficients + 16 MAC tag words)
+    // back to raw bytes.  Returns an empty Vec on MAC failure, wrong seed, or bad length.
     pub fn decrypt_bytes(&self, cipher: &[u16], nonce: u32) -> Vec<u8> {
-        if cipher.len() != 1024 {
+        if cipher.len() != 1040 {
             return vec![];
         }
         if let Some(seed) = &self.shared_seed {
-            let mut coeffs = [0u16; 1024];
-            coeffs.copy_from_slice(cipher);
-            let point = gka::RingElement { coeffs };
-            if let Ok(bytes) = ndcrypt::decrypt(&point, &**seed, nonce as u64) {
+            if let Ok(bytes) = ndcrypt::decrypt_authenticated(cipher, &**seed, nonce as u64) {
                 return bytes;
             }
         }
